@@ -1,0 +1,18 @@
+# Copie para .dev.vars. Nunca versione .dev.vars.
+# Em produção use: wrangler secret put NOME
+
+# Obrigatório. Assina o cookie de sessão.
+# Gere com: openssl rand -base64 32
+BETTER_AUTH_SECRET=""
+
+# Obrigatório. Quem pode criar conta.
+# Domínios inteiros ou endereços, separados por vírgula.
+# Uma lista vazia recusa todo cadastro.
+ALLOWED_SIGN_IN="exemplo.com.br"
+
+# Opcional. Sem ela, ninguém recupera a senha sozinho.
+RESEND_API_KEY=""
+RESEND_FROM="CRM <crm@exemplo.com.br>"
+
+# Opcional. Telemetria de produto.
+POSTHOG_KEY=""

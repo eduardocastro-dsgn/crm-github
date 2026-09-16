@@ -1,0 +1,466 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../node_modules/.prisma-d1"
+  runtime         = "workerd"
+  moduleFormat    = "esm"
+  previewFeatures = ["driverAdapters"]
+}
+
+model User {
+  id            String   @id
+  name          String
+  email         String
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
+  ownedCompanies Company[]   @relation("CompanyOwner")
+  ownedContacts  Contact[]   @relation("ContactOwner")
+  ownedDeals     Deal[]      @relation("DealOwner")
+  activities     Activity[]  @relation("ActivityAuthor")
+  fieldValues    FieldValue[] @relation("FieldValueUser")
+  savedViews     SavedView[] @relation("SavedViewOwner")
+
+  members     Member[]
+  invitations Invitation[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeOrganizationId String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Organization {
+  id        String   @id
+  name      String
+  slug      String
+  logo      String?
+  createdAt DateTime
+  metadata  String?
+  website   String?
+  version   Int      @default(0)
+
+  members     Member[]
+  invitations Invitation[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  createdAt      DateTime
+  version        Int          @default(0)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitation")
+}
+
+model Company {
+  id          String  @id @default(cuid())
+  name        String
+  nameSearch  String
+  domain      String?
+  domainSearch String?
+  website     String?
+  description String?
+
+  logoUrl     String?
+  logoDarkUrl String?
+  iconUrl     String?
+  iconDarkUrl String?
+  iconTone    String?
+  brandColor  String?
+
+  industry    String?
+  subIndustry String?
+  city        String?
+  stateCode   String?
+  country     String?
+  countryCode String?
+
+  phone       String?
+  email       String?
+  linkedinUrl String?
+  twitterUrl  String?
+  githubUrl   String?
+  pricingUrl  String?
+  careersUrl  String?
+
+  ownerId          String?
+  owner            User?    @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  primaryContactId String?  @unique
+  primaryContact   Contact? @relation("PrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+
+  source String @default("MANUAL")
+
+  lastActivityAt DateTime?
+  archivedAt     DateTime?
+  version        Int       @default(0)
+
+  contacts    Contact[]    @relation("CompanyContacts")
+  deals       Deal[]
+  activities  Activity[]
+  fieldValues FieldValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([nameSearch])
+  @@index([domainSearch])
+  @@index([lastActivityAt])
+  @@index([archivedAt])
+  @@map("company")
+}
+
+model Contact {
+  id          String  @id @default(cuid())
+  firstName   String
+  lastName    String?
+  nameSearch  String
+  email       String?
+  emailSearch String?
+  phone       String?
+  title       String?
+  seniority   String?
+  function    String?
+  linkedinUrl String?
+  twitterUrl  String?
+  githubUrl   String?
+  imageUrl    String?
+
+  companyId String?
+  company   Company? @relation("CompanyContacts", fields: [companyId], references: [id], onDelete: SetNull)
+  ownerId   String?
+  owner     User?    @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  primaryOf Company? @relation("PrimaryContact")
+
+  source String @default("MANUAL")
+
+  lastActivityAt DateTime?
+  archivedAt     DateTime?
+  version        Int       @default(0)
+
+  deals       DealContact[]
+  activities  Activity[]
+  fieldValues FieldValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([nameSearch])
+  @@index([emailSearch])
+  @@index([lastActivityAt])
+  @@index([archivedAt])
+  @@map("contact")
+}
+
+model Deal {
+  id          String  @id @default(cuid())
+  name        String
+  nameSearch  String
+  description String?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  ownerId   String
+  owner     User    @relation("DealOwner", fields: [ownerId], references: [id])
+
+  stage             String    @default("DEMO_BOOKED")
+  stageChangedAt    DateTime  @default(now())
+  amount            Int?
+  currency          String    @default("BRL")
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+  closedReason      String?
+
+  baseAmount   Int?
+  baseCurrency String?
+  fxRate       Int?
+  fxRateAt     DateTime?
+
+  lastActivityAt DateTime?
+  archivedAt     DateTime?
+  version        Int       @default(0)
+
+  contacts    DealContact[]
+  activities  Activity[]
+  fieldValues FieldValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([stage])
+  @@index([nameSearch])
+  @@index([expectedCloseDate])
+  @@index([lastActivityAt])
+  @@index([baseAmount])
+  @@index([currency])
+  @@index([archivedAt])
+  @@map("deal")
+}
+
+model DealContact {
+  dealId    String
+  deal      Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  role      String?
+
+  @@id([dealId, contactId])
+  @@index([contactId])
+  @@map("dealContact")
+}
+
+model ExchangeRate {
+  id            String   @id @default(cuid())
+  baseCurrency  String
+  quoteCurrency String
+  rate          Int
+  asOf          DateTime
+  source        String
+  provider      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([baseCurrency, quoteCurrency, source])
+  @@index([baseCurrency, quoteCurrency])
+  @@map("exchangeRate")
+}
+
+model FieldDefinition {
+  id     String @id @default(cuid())
+  entity String
+  key    String
+  label  String
+  type   String
+
+  required     Boolean @default(false)
+  showOnSheet  Boolean @default(true)
+  showOnTable  Boolean @default(false)
+  showOnFilter Boolean @default(false)
+  position     Int
+
+  archivedAt DateTime?
+  version    Int       @default(0)
+
+  options FieldOption[]
+  values  FieldValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entity, key])
+  @@index([entity, position])
+  @@map("fieldDefinition")
+}
+
+model FieldOption {
+  id       String          @id @default(cuid())
+  fieldId  String
+  field    FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  label    String
+  position Int
+
+  archivedAt DateTime?
+  values     FieldValue[]
+
+  @@index([fieldId, position])
+  @@map("fieldOption")
+}
+
+model FieldValue {
+  id      String          @id @default(cuid())
+  fieldId String
+  field   FieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  text     String?
+  number   Float?
+  date     DateTime?
+  bool     Boolean?
+  optionId String?
+  option   FieldOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+  userId   String?
+  user     User?        @relation("FieldValueUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([fieldId, companyId])
+  @@unique([fieldId, contactId])
+  @@unique([fieldId, dealId])
+  @@index([fieldId, text])
+  @@index([companyId])
+  @@index([contactId])
+  @@index([dealId])
+  @@map("fieldValue")
+}
+
+model SavedView {
+  id      String  @id @default(cuid())
+  entity  String
+  name    String
+  shared  Boolean @default(false)
+  filters String
+
+  ownerId String
+  owner   User   @relation("SavedViewOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entity, ownerId, name])
+  @@index([entity, shared])
+  @@map("savedView")
+}
+
+model Activity {
+  id      String  @id @default(cuid())
+  type    String
+  subject String?
+  body    String?
+
+  occurredAt  DateTime?
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User   @relation("ActivityAuthor", fields: [createdById], references: [id])
+  meta        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, createdAt])
+  @@index([dealId, createdAt])
+  @@index([contactId, createdAt])
+  @@index([dueAt])
+  @@index([createdById])
+  @@map("activity")
+}
+
+model SuppressedDomain {
+  domain    String   @id
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@map("suppressedDomain")
+}
+
+model SuppressedContact {
+  email     String   @id
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@map("suppressedContact")
+}
+
+model AppSetting {
+  id String @id
+
+  reportingCurrency    String?
+  ratesRefreshedAt     DateTime?
+  archiveRetentionDays Int       @default(180)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("appSetting")
+}
